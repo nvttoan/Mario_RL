@@ -33,6 +33,7 @@ class model(nn.Module):
         x = torch.relu(self.fc(x))
         adv = self.q(x)
         v = self.v(x)
+        #Tính toán giá trị Q  sử dụng công thức dueling DQN.
         q = v + (adv - 1 / adv.shape[-1] * adv.max(-1, True)[0])
         return q
 
@@ -42,13 +43,13 @@ def init_weights(m):
         torch.nn.init.xavier_uniform_(m.weight)
         m.bias.data.fill_(0.01)
 
-# Chuyển đổi vị trí chiều của mảng numpy
+# Kiểm tra dữ liệu đầu vào
 def arange(s):
-    if not type(s) == "numpy.ndarray":
+    if not isinstance(s, np.ndarray):
         s = np.array(s)
     assert len(s.shape) == 3
-    ret = np.transpose(s, (2, 0, 1))
-    return np.expand_dims(ret, 0)
+    ret = np.transpose(s, (2, 0, 1)) # chuyển thành channels, height, width cho mạng nơ ron
+    return np.expand_dims(ret, 0) # thêm chiều đầu tiên( batch size)
 
 
 if __name__ == "__main__":

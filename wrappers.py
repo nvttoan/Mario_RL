@@ -44,7 +44,7 @@ class NoopResetEnv(gym.Wrapper):
     def step(self, ac):
         return self.env.step(ac)
 
-# Wrapper để thực hiện hoạt động "fire" (bắn) trong quá trình reset
+# Wrapper để thực hiện hoạt động "fire" trong quá trình reset
 class FireResetEnv(gym.Wrapper):
     def __init__(self, env):
         """Thực hiện hoạt động trong quá trình reset cho các môi trường được cố định cho đến khi bắn."""
@@ -65,7 +65,7 @@ class FireResetEnv(gym.Wrapper):
     def step(self, ac):
         return self.env.step(ac)
 
-# Wrapper để xử lý kết thúc cuộc đời của nhân vật trong môi trường Mario
+# Wrapper để xử lý sau khi reset, đảm bảo môi trường có thể bắt đầu vòng lawpj mới
 class EpisodicLifeEnv(gym.Wrapper):
     def __init__(self, env):
         """Kết thúc một cuộc đời = kết thúc một tập, nhưng chỉ reset khi game thực sự kết thúc."""
@@ -88,19 +88,17 @@ class EpisodicLifeEnv(gym.Wrapper):
         return obs, reward, done, info
 
     def reset(self, **kwargs):
-        """Reset chỉ khi cuộc sống đã cạn kiệt.
-        Điều này giúp tất cả các trạng thái vẫn có thể đạt được mặc dù cuộc sống là episodic,
-        và người học không cần biết về bất kỳ điều này ở phía sau cánh cửa.
+        """Reset chỉ khi Mario chết.
         """
         if self.was_real_done:
             obs = self.env.reset(**kwargs)
         else:
-            # Bước không hoạt động để tiến từ trạng thái kết thúc/ mất cuộc sống
+        # kiểm tra trạng thái trước đó có phải là kết thúc thực sự chưa
             obs, _, _, _ = self.env.step(0)
         self.lives = self.env.unwrapped.ale.lives()
         return obs
 
-# Wrapper để chỉ trả về mỗi khung hình thứ k
+# Wrapper để chỉ trả về mỗi khung hình thứ skip, giúp tăng toc huấn luyện, giảm phwucs tạp
 class MaxAndSkipEnv(gym.Wrapper):
     def __init__(self, env, skip=4):
         """Chỉ trả về mỗi khung hình thứ `skip`"""
@@ -110,7 +108,7 @@ class MaxAndSkipEnv(gym.Wrapper):
         self._skip = skip
 
     def step(self, action):
-        """Lặp lại hoạt động, tính tổng thưởng và max qua các quan sát gần đây."""
+        """Lặp lại hoạt động, tính tổng thưởng và max qua các quan sát gần nhất."""
         total_reward = 0.0
         done = None
         for i in range(self._skip):
@@ -122,7 +120,7 @@ class MaxAndSkipEnv(gym.Wrapper):
             total_reward += reward
             if done:
                 break
-        # Lưu ý rằng quan sát trong frame done=True không quan trọng
+
         max_frame = self._obs_buffer.max(axis=0)
 
         return max_frame, total_reward, done, info
@@ -137,7 +135,7 @@ class ClipRewardEnv(gym.RewardWrapper):
         gym.RewardWrapper.__init__(self, env)
 
     def reward(self, reward):
-        """Chia thưởng thành {+1, 0, -1} ."""
+        """ Chia phần thưởng thành {+1, 0, -1} ."""
         return np.sign(reward)
 
 
@@ -145,7 +143,7 @@ class WarpFrame(gym.ObservationWrapper):
     def __init__(self, env, width=84, height=84, grayscale=True, dict_space_key=None):
         """
         Chuyển đổi khung hình thành 84x84.
-         `dict_space_key` có thể được xác định quan sát nào sẽ được biến đổi.
+        Và chuyển thành ảnh xám.
         """
         super().__init__(env)
         self._width = width
@@ -239,27 +237,26 @@ class ScaledFloatFrame(gym.ObservationWrapper):
 
 class LazyFrames(object):
     def __init__(self, frames):
-        """Đối tượng này đảm bảo rằng các frame phổ biến giữa các quan sát chỉ được lưu một lần.
-        Đây chỉ là một biện pháp để tối ưu hóa việc sử dụng bộ nhớ của DQN.
-        Đối tượng này chỉ nên được chuyển thành mảng numpy trước khi được truyền cho mô hình."""
+        """Xử lý với các chuỗi các frame được xếp chồng
+        sau đó được chuyển thành mảng numpy trước khi được truyền cho mô hình."""
         self._frames = frames
         self._out = None
-
+    # Kết nối các khung
     def _force(self):
         if self._out is None:
             self._out = np.concatenate(self._frames, axis=-1)
             self._frames = None
         return self._out
-
+    # Chuyerern đổi kết quả sang dtype
     def __array__(self, dtype=None):
         out = self._force()
         if dtype is not None:
             out = out.astype(dtype)
         return out
-
+    # độ dài của các khung
     def __len__(self):
         return len(self._force())
-
+    # truy cập vào khung hình thứ i
     def __getitem__(self, i):
         return self._force()[i]
 
@@ -270,7 +267,7 @@ class LazyFrames(object):
     def frame(self, i):
         return self._force()[..., i]
 
-
+#Hàm tạo một môi trường Atari từ env_id
 def make_atari(env_id, max_episode_steps=None):
     env = gym.make(env_id)
     assert "NoFrameskip" in env.spec.id
@@ -280,7 +277,7 @@ def make_atari(env_id, max_episode_steps=None):
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
     return env
 
-
+#Cấu hình môi trường
 def wrap_deepmind(
     env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True
 ):
@@ -308,37 +305,46 @@ class EpisodicLifeMario(gym.Wrapper):
         self.was_real_done = True
 
     def step(self, action):
+        """Thực hiện một hành động trong môi trường và cập nhật trạng thái
+
+                Args:
+                    action (int): Hành động cần thực hiện
+
+                Returns:
+                    observation (object): Quan sát sau khi thực hiện hành động
+                    reward (float): Phần thưởng nhận được sau khi thực hiện hành động
+                    done (bool): True nếu episode kết thúc, False nếu chưa kết thúc
+                    info (dict): Thông tin bổ sung từ môi trường
+
+                """
         obs, reward, done, info = self.env.step(action)
         self.was_real_done = done
-        # check current lives, make loss of life terminal,
-        # then update lives to handle bonus lives
+        # Kiểm tra số mạng hiện tại của Mario
         lives = self.env.unwrapped._life
         if lives < self.lives and lives > 0:
-            # for Qbert sometimes we stay in lives == 0 condition for a few frames
-            # so it's important to keep lives > 0, so that we only reset once
-            # the environment advertises done.
+            # Đảm bảo số mạng > 0 để chỉ reset khi môi trường thông báo kết thúc
             done = True
         self.lives = lives
         return obs, reward, done, info
 
     def reset(self, **kwargs):
-        """Reset lại trò chơi khi Mariodđã chết
+        """Reset lại trò chơi khi Mario đã chết
         """
         if self.was_real_done:
             obs = self.env.reset(**kwargs)
         else:
-            # no-op step to advance from terminal/lost life state
+            # Bước no-op để đi tiếp từ trạng thái kết thúc
             obs, _, _, _ = self.env.step(0)
         self.lives = self.env.unwrapped._life
         return obs
 
-
+# thực hiện wrap trước khi đưa vào mô hình
 def wrap_mario(env):
     env = NoopResetEnv(env, noop_max=30)
     env = MaxAndSkipEnv(env, skip=4)
-    env = EpisodicLifeMario(env)
+    env = EpisodicLifeMario(env) #khi hết tgian
     env = WarpFrame(env)
-    env = ScaledFloatFrame(env)
+    env = ScaledFloatFrame(env) #chuyen pixel thanh float
     # env = custom_reward(env)
-    env = FrameStack(env, 4)
+    env = FrameStack(env, 4) #xep 4 khung hinh
     return env

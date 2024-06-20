@@ -13,7 +13,7 @@ from nes_py.wrappers import JoypadSpace
 
 from wrappers import *
 
-# Chuyển đổi hình ảnh sang tensor
+# Chuyển đổi hình ảnh sang dữ liệu cần cho nơ ron
 def arrange(s):
     if not type(s) == "numpy.ndarray":
         s = np.array(s)
@@ -155,7 +155,7 @@ def main(env, q, q_target, optimizer, device):
 
 if __name__ == "__main__":
     n_frame = 4
-    env = gym_super_mario_bros.make("SuperMarioBros-v0")
+    env = gym_super_mario_bros.make("SuperMarioBros-v3")
     env = JoypadSpace(env, COMPLEX_MOVEMENT)
     env = wrap_mario(env)
     device = "cuda" if torch.cuda.is_available() else "cpu"
