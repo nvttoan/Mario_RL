@@ -112,7 +112,7 @@ def main(env, q, q_target, optimizer, device):
     for k in range(1000000):
         s = arrange(env.reset())
         done = False
-
+        prev_reward = 0
         while not done:
             if eps > np.random.rand():
                 a = env.action_space.sample()
@@ -125,6 +125,10 @@ def main(env, q, q_target, optimizer, device):
             s_prime = arrange(s_prime)
             # print(f"Hành động: {a}, Phần thưởng: {r}")
             total_score += r
+            if r > prev_reward:
+                print(f"Phần thưởng tăng: {r} (Tăng: {r - prev_reward})")
+
+            prev_reward = r  # Cập nhật phần thưởng trước đó
             r = np.sign(r) * (np.sqrt(abs(r) + 1) - 1) + 0.001 * r
             memory.push((s, float(r), int(a), s_prime, int(1 - done)))
             s = s_prime
@@ -159,7 +163,7 @@ if __name__ == "__main__":
     env = gym_super_mario_bros.make("SuperMarioBros-v3")
     env = JoypadSpace(env, RIGHT_ONLY)
     print(env.action_space)  # In ra không gian hành động
-    # print(env.unwrapped.get_action_meanings())  # In ra ý nghĩa của các hành động
+    print(RIGHT_ONLY)
     env = wrap_mario(env)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     q = model(n_frame, env.action_space.n, device).to(device)
