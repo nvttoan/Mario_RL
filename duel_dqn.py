@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from gym_super_mario_bros.actions import COMPLEX_MOVEMENT
+from gym_super_mario_bros.actions import COMPLEX_MOVEMENT, RIGHT_ONLY
 from nes_py.wrappers import JoypadSpace
 
 from wrappers import *
@@ -123,6 +123,7 @@ def main(env, q, q_target, optimizer, device):
                     a = np.argmax(q(s).cpu().detach().numpy())
             s_prime, r, done, _ = env.step(a)
             s_prime = arrange(s_prime)
+            print(f"Hành động: {a}, Phần thưởng: {r}")
             total_score += r
             r = np.sign(r) * (np.sqrt(abs(r) + 1) - 1) + 0.001 * r
             memory.push((s, float(r), int(a), s_prime, int(1 - done)))
@@ -156,7 +157,7 @@ def main(env, q, q_target, optimizer, device):
 if __name__ == "__main__":
     n_frame = 4
     env = gym_super_mario_bros.make("SuperMarioBros-v3")
-    env = JoypadSpace(env, COMPLEX_MOVEMENT)
+    env = JoypadSpace(env, RIGHT_ONLY)
     env = wrap_mario(env)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     q = model(n_frame, env.action_space.n, device).to(device)
