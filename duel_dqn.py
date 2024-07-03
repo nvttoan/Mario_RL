@@ -125,10 +125,10 @@ def main(env, q, q_target, optimizer, device):
             s_prime = arrange(s_prime)
             # print(f"Hành động: {a}, Phần thưởng: {r}")
             total_score += r
-            if r > prev_reward:
-                print(f"Phần thưởng tăng: {r} (Tăng: {r - prev_reward})")
-
-            prev_reward = r  # Cập nhật phần thưởng trước đó
+            # if r > prev_reward:
+            #     print(f"Phần thưởng tăng: {r} (Tăng: {r - prev_reward})")
+            #
+            # prev_reward = r  # Cập nhật phần thưởng trước đó
             r = np.sign(r) * (np.sqrt(abs(r) + 1) - 1) + 0.001 * r
             memory.push((s, float(r), int(a), s_prime, int(1 - done)))
             s = s_prime
@@ -171,4 +171,4 @@ if __name__ == "__main__":
     optimizer = optim.Adam(q.parameters(), lr=0.0001)
     print(device)
 
-    main(env, q, q_target, optimizer, device)
+    # main(env, q, q_target, optimizer, device)
