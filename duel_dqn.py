@@ -171,4 +171,4 @@ if __name__ == "__main__":
     optimizer = optim.Adam(q.parameters(), lr=0.0001)
     print(device)
 
-    # main(env, q, q_target, optimizer, device)
+    main(env, q, q_target, optimizer, device)
