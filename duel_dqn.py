@@ -93,6 +93,7 @@ def copy_weights(q, q_target):
     q_dict = q.state_dict()
     q_target.load_state_dict(q_dict)
 
+
 # Hàm chính để huấn luyện mô hình và chơi game
 def main(env, q, q_target, optimizer, device):
     t = 0
@@ -104,106 +105,77 @@ def main(env, q, q_target, optimizer, device):
     memory = replay_memory(N)
     update_interval = 50
     print_interval = 10
-    loss_lst = []
+
     score_lst = []
     total_score = 0.0
     loss = 0.0
 
-    stuck_steps = 5  # Number of steps to detect if Mario is stuck
-    stuck_threshold = 0.01  # Threshold to consider Mario stuck
-    stuck_action = 5  # Action to perform when stuck (right + jump)
+    stuck_steps = 5  # Số bước để phát hiện Mario bị kẹt
+    stuck_threshold = 0.01  # Ngưỡng để coi Mario bị kẹt
+    stuck_action = 5  # Hành động để thực hiện khi bị kẹt (right + jump)
     prev_position = 0
     stuck_counter = 0
 
-    try:
-        for k in range(1000000):
-            s = arrange(env.reset())
-            done = False
-            while not done:
-                if eps > np.random.rand():
-                    a = env.action_space.sample()
+    for k in range(1000000):
+        s = arrange(env.reset())
+        done = False
+        while not done:
+            if eps > np.random.rand():
+                a = env.action_space.sample()
+            else:
+                if device == "cpu":
+                    a = np.argmax(q(s).detach().numpy())
                 else:
-                    if device == "cpu":
-                        a = np.argmax(q(s).detach().numpy())
-                    else:
-                        a = np.argmax(q(s).cpu().detach().numpy())
+                    a = np.argmax(q(s).cpu().detach().numpy())
 
-                s_prime, r, done, info = env.step(a)
-                # print("Reward for this step:", r)
-                # print("action", a)
+            # Thực hiện hành động và nhận kết quả từ môi trường
+            s_prime, r, done, info = env.step(a)
+            s_prime = arrange(s_prime)
+            total_score += r
+
+            # Kiểm tra xem Mario có bị kẹt không
+            current_position = info['x_pos']
+            if abs(current_position - prev_position) < stuck_threshold:
+                stuck_counter += 1
+            else:
+                stuck_counter = 0
+
+            # Nếu Mario bị kẹt, thực hiện hành động stuck_action
+            if stuck_counter >= stuck_steps:
+                s_prime, r, done, info = env.step(stuck_action)
                 s_prime = arrange(s_prime)
                 total_score += r
+                stuck_counter = 0  # Reset bộ đếm sau khi thực hiện hành động giải cứu
 
-                r = np.sign(r) * (np.sqrt(abs(r) + 1) - 1) + 0.001 * r
-                memory.push((s, float(r), int(a), s_prime, int(1 - done)))
-                s = s_prime
+            r = np.sign(r) * (np.sqrt(abs(r) + 1) - 1) + 0.001 * r
+            memory.push((s, float(r), int(a), s_prime, int(1 - done)))
+            s = s_prime
+            prev_position = current_position
 
-                # Check if Mario is stuck
-                current_position = info['x_pos']
-                if abs(current_position - prev_position) < stuck_threshold:
-                    stuck_counter += 1
-                else:
-                    stuck_counter = 0
+            if len(memory) > 2000:
+                loss += train(q, q_target, memory, batch_size, gamma, optimizer, device)
+                t += 1
 
-                if stuck_counter >= stuck_steps:
-                    a = stuck_action
-                    stuck_counter = 0  # Reset the counter after taking the unstuck action
+            if t % update_interval == 0:
+                copy_weights(q, q_target)
+                torch.save(q.state_dict(), "mario_q.pth")
+                torch.save(q_target.state_dict(), "mario_q_target.pth")
 
-                prev_position = current_position
-
-                if len(memory) > 2000:
-                    loss += train(q, q_target, memory, batch_size, gamma, optimizer, device)
-                    t += 1
-
-                if t % update_interval == 0:
-                    copy_weights(q, q_target)
-                    torch.save(q.state_dict(), "mario_q.pth")
-                    torch.save(q_target.state_dict(), "mario_q_target.pth")
-
-            if k % print_interval == 0:
-                avg_score = total_score / print_interval
-                avg_loss = loss / print_interval
-                print(
-                    "%s |Epoch : %d | score : %f | loss : %.2f | stage : %d"
-                    % (
-                        device,
-                        k,
-                        avg_score,
-                        avg_loss,
-                        env.unwrapped._stage,
-                    )
+        if k % print_interval == 0:
+            print(
+                "%s |Epoch : %d | score : %f | loss : %.2f | stage : %d"
+                % (
+                    device,
+                    k,
+                    total_score / print_interval,
+                    loss / print_interval,
+                    env.unwrapped._stage,
                 )
-                score_lst.append((k, avg_score))
-                loss_lst.append((k, avg_loss))
-                total_score = 0
-                loss = 0.0
-                pickle.dump(score_lst, open("score.p", "wb"))
-                pickle.dump(loss_lst, open("loss.p", "wb"))
-                if score_lst:
-                    epochs, scores = zip(*score_lst)
-                    plt.figure(figsize=(10, 5))
-                    plt.plot(epochs, scores, label='Score')
-                    plt.xlabel('Epoch')
-                    plt.ylabel('Score')
-                    plt.title('Score vs Epoch')
-                    plt.legend()
-                    plt.savefig('score_vs_epoch.png')
-                    plt.close()
-
-                    # Vẽ và lưu biểu đồ loss
-                if loss_lst:
-                    epochs, losses = zip(*loss_lst)
-                    plt.figure(figsize=(10, 5))
-                    plt.plot(epochs, losses, label='Loss', color='red')
-                    plt.xlabel('Epoch')
-                    plt.ylabel('Loss')
-                    plt.title('Loss vs Epoch')
-                    plt.legend()
-                    plt.savefig('loss_vs_epoch.png')
-                    plt.close()
-
-    finally:
-        print("end")
+            )
+            score_lst.append(total_score / print_interval)
+            total_score = 0
+            loss = 0.0
+            pickle.dump(score_lst, open("score.p", "wb"))
 
 if __name__ == "__main__":
     n_frame = 4
