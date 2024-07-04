@@ -109,10 +109,15 @@ def main(env, q, q_target, optimizer, device):
     total_score = 0.0
     loss = 0.0
 
+    stuck_steps = 5  # Number of steps to detect if Mario is stuck
+    stuck_threshold = 0.01  # Threshold to consider Mario stuck
+    stuck_action = 2  # Action to perform when stuck (right + jump)
+    prev_position = 0
+    stuck_counter = 0
+
     for k in range(1000000):
         s = arrange(env.reset())
         done = False
-        prev_reward = 0
         while not done:
             if eps > np.random.rand():
                 a = env.action_space.sample()
@@ -121,21 +126,32 @@ def main(env, q, q_target, optimizer, device):
                     a = np.argmax(q(s).detach().numpy())
                 else:
                     a = np.argmax(q(s).cpu().detach().numpy())
-            s_prime, r, done, _ = env.step(a)
+
+            s_prime, r, done, info = env.step(a)
             s_prime = arrange(s_prime)
-            # print(f"Hành động: {a}, Phần thưởng: {r}")
             total_score += r
-            # if r > prev_reward:
-            #     print(f"Phần thưởng tăng: {r} (Tăng: {r - prev_reward})")
-            #
-            # prev_reward = r  # Cập nhật phần thưởng trước đó
+
             r = np.sign(r) * (np.sqrt(abs(r) + 1) - 1) + 0.001 * r
             memory.push((s, float(r), int(a), s_prime, int(1 - done)))
             s = s_prime
-            stage = env.unwrapped._stage
+
+            # Check if Mario is stuck
+            current_position = info['x_pos']
+            if abs(current_position - prev_position) < stuck_threshold:
+                stuck_counter += 1
+            else:
+                stuck_counter = 0
+
+            if stuck_counter >= stuck_steps:
+                a = stuck_action
+                stuck_counter = 0  # Reset the counter after taking the unstuck action
+
+            prev_position = current_position
+
             if len(memory) > 2000:
                 loss += train(q, q_target, memory, batch_size, gamma, optimizer, device)
                 t += 1
+
             if t % update_interval == 0:
                 copy_weights(q, q_target)
                 torch.save(q.state_dict(), "mario_q.pth")
@@ -149,7 +165,7 @@ def main(env, q, q_target, optimizer, device):
                     k,
                     total_score / print_interval,
                     loss / print_interval,
-                    stage,
+                    env.unwrapped._stage,
                 )
             )
             score_lst.append(total_score / print_interval)

@@ -4,10 +4,12 @@ import time
 import gym_super_mario_bros
 import torch
 import torch.nn as nn
-from gym_super_mario_bros.actions import COMPLEX_MOVEMENT
+from gym_super_mario_bros.actions import COMPLEX_MOVEMENT,RIGHT_ONLY
 from nes_py.wrappers import JoypadSpace
+import gym
+from gym.wrappers import RecordVideo
 from wrappers import *
-
+import os
 
 # Mô hình mạng nơ-ron
 class model(nn.Module):
@@ -60,31 +62,40 @@ if __name__ == "__main__":
     n_frame = 4
     # Tạo môi trường Super Mario Bros
     env = gym_super_mario_bros.make("SuperMarioBros-v0")
-    env = JoypadSpace(env, COMPLEX_MOVEMENT)
+    env = JoypadSpace(env, RIGHT_ONLY)
     env = wrap_mario(env)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # Tải trọng số mạng từ checkpoint
     q = model(n_frame, env.action_space.n, device).to(device)
 
     q.load_state_dict(torch.load(ckpt_path, map_location=torch.device(device)))
-    total_score = 0.0
-    done = False
-    s = arange(env.reset())
-    i = 0
-    # Vào game
-    while not done:
-        env.render()
-        # Dự đoán hành động tốt nhất dựa trên trạng thái hiện tại
-        if device == "cpu":
-            a = np.argmax(q(s).detach().numpy())
-        else:
-            a = np.argmax(q(s).cpu().detach().numpy())
-        # Thực hiện hành động và nhận lại trạng thái mới và thưởng
-        s_prime, r, done, _ = env.step(a)
-        s_prime = arange(s_prime)
-        total_score += r
-        s = s_prime
-        time.sleep(0.001)
-    # Lấy thông tin về màn chơi và điểm số tổng cộng
-    stage = env.unwrapped._stage
-    print("Total score : %f | stage : %d" % (total_score, stage))
+
+    # video_dir = './videos'
+    # os.makedirs(video_dir, exist_ok=True)
+    while True:
+        total_score = 0.0
+        done = False
+        s = arange(env.reset())
+        i = 0
+
+        # # Start recording video
+        # video_path = os.path.join(video_dir, f"run_{time.time()}.mp4")
+        # env = gym.wrappers.Monitor(env, video_path, force=True)
+        # Vào game
+        while not done:
+            env.render()
+            # Dự đoán hành động tốt nhất dựa trên trạng thái hiện tại
+            if device == "cpu":
+                a = np.argmax(q(s).detach().numpy())
+            else:
+                a = np.argmax(q(s).cpu().detach().numpy())
+            # Thực hiện hành động và nhận lại trạng thái mới và thưởng
+            s_prime, r, done, _ = env.step(a)
+            s_prime = arange(s_prime)
+            total_score += r
+            s = s_prime
+            time.sleep(0.001)
+        # Lấy thông tin về màn chơi và điểm số tổng cộng
+        stage = env.unwrapped._stage
+        print("Total score : %f | stage : %d" % (total_score, stage))
+
