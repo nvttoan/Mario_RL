@@ -130,7 +130,7 @@ def main(env, q, q_target, optimizer, device):
 
                 s_prime, r, done, info = env.step(a)
                 # print("Reward for this step:", r)
-                print("action", a)
+                # print("action", a)
                 s_prime = arrange(s_prime)
                 total_score += r
 
