@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from gym_super_mario_bros.actions import COMPLEX_MOVEMENT, RIGHT_ONLY
 from nes_py.wrappers import JoypadSpace
-
+import matplotlib.pyplot as plt
 from wrappers import *
 
 # Chuyển đổi hình ảnh sang dữ liệu cần cho nơ ron
@@ -104,14 +104,14 @@ def main(env, q, q_target, optimizer, device):
     memory = replay_memory(N)
     update_interval = 50
     print_interval = 10
-
+    loss_lst = []
     score_lst = []
     total_score = 0.0
     loss = 0.0
 
     stuck_steps = 5  # Number of steps to detect if Mario is stuck
     stuck_threshold = 0.01  # Threshold to consider Mario stuck
-    stuck_action = 2  # Action to perform when stuck (right + jump)
+    stuck_action = 5  # Action to perform when stuck (right + jump)
     prev_position = 0
     stuck_counter = 0
 
@@ -128,6 +128,8 @@ def main(env, q, q_target, optimizer, device):
                     a = np.argmax(q(s).cpu().detach().numpy())
 
             s_prime, r, done, info = env.step(a)
+            # print("Reward for this step:", r)
+            print("action", a)
             s_prime = arrange(s_prime)
             total_score += r
 
@@ -172,7 +174,33 @@ def main(env, q, q_target, optimizer, device):
             total_score = 0
             loss = 0.0
             pickle.dump(score_lst, open("score.p", "wb"))
+            pickle.dump(loss_lst, open("loss.p", "wb"))
 
+# Vẽ biểu đồ
+    epochs, scores = zip(*score_lst)
+    _, losses = zip(*loss_lst)
+
+    plt.figure(figsize=(12, 5))
+
+    # Biểu đồ score
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, scores, label='Score')
+    plt.xlabel('Epoch')
+    plt.ylabel('Score')
+    plt.title('Score vs Epoch')
+    plt.legend()
+
+    # Biểu đồ loss
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, losses, label='Loss', color='red')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Loss vs Epoch')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig('training_results.png')
+    plt.show()
 
 if __name__ == "__main__":
     n_frame = 4
