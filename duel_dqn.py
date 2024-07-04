@@ -182,25 +182,27 @@ def main(env, q, q_target, optimizer, device):
 
     plt.figure(figsize=(12, 5))
 
-    # Biểu đồ score
-    plt.subplot(1, 2, 1)
+    # Vẽ biểu đồ score
+    epochs, scores = zip(*score_lst)
+    plt.figure(figsize=(10, 5))
     plt.plot(epochs, scores, label='Score')
     plt.xlabel('Epoch')
     plt.ylabel('Score')
     plt.title('Score vs Epoch')
     plt.legend()
+    plt.savefig('score_vs_epoch.png')
+    plt.close()
 
-    # Biểu đồ loss
-    plt.subplot(1, 2, 2)
+    # Vẽ biểu đồ loss
+    epochs, losses = zip(*loss_lst)
+    plt.figure(figsize=(10, 5))
     plt.plot(epochs, losses, label='Loss', color='red')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.title('Loss vs Epoch')
     plt.legend()
-
-    plt.tight_layout()
-    plt.savefig('training_results.png')
-    plt.show()
+    plt.savefig('loss_vs_epoch.png')
+    plt.close()
 
 if __name__ == "__main__":
     n_frame = 4
