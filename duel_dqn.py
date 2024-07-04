@@ -112,7 +112,7 @@ def main(env, q, q_target, optimizer, device):
 
     stuck_steps = 5  # Số bước để phát hiện Mario bị kẹt
     stuck_threshold = 0.01  # Ngưỡng để coi Mario bị kẹt
-    stuck_action = 5  # Hành động để thực hiện khi bị kẹt (right + jump)
+    stuck_action = 4  # Hành động để thực hiện khi bị kẹt (right + jump)
     prev_position = 0
     stuck_counter = 0
 
