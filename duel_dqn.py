@@ -179,31 +179,31 @@ def main(env, q, q_target, optimizer, device):
                 loss = 0.0
                 pickle.dump(score_lst, open("score.p", "wb"))
                 pickle.dump(loss_lst, open("loss.p", "wb"))
+                if score_lst:
+                    epochs, scores = zip(*score_lst)
+                    plt.figure(figsize=(10, 5))
+                    plt.plot(epochs, scores, label='Score')
+                    plt.xlabel('Epoch')
+                    plt.ylabel('Score')
+                    plt.title('Score vs Epoch')
+                    plt.legend()
+                    plt.savefig('score_vs_epoch.png')
+                    plt.close()
+
+                    # Vẽ và lưu biểu đồ loss
+                if loss_lst:
+                    epochs, losses = zip(*loss_lst)
+                    plt.figure(figsize=(10, 5))
+                    plt.plot(epochs, losses, label='Loss', color='red')
+                    plt.xlabel('Epoch')
+                    plt.ylabel('Loss')
+                    plt.title('Loss vs Epoch')
+                    plt.legend()
+                    plt.savefig('loss_vs_epoch.png')
+                    plt.close()
 
     finally:
-        # Vẽ biểu đồ score
-        if score_lst:
-            epochs, scores = zip(*score_lst)
-            plt.figure(figsize=(10, 5))
-            plt.plot(epochs, scores, label='Score')
-            plt.xlabel('Epoch')
-            plt.ylabel('Score')
-            plt.title('Score vs Epoch')
-            plt.legend()
-            plt.savefig('score_vs_epoch.png')
-            plt.close()
-
-        # Vẽ biểu đồ loss
-        if loss_lst:
-            epochs, losses = zip(*loss_lst)
-            plt.figure(figsize=(10, 5))
-            plt.plot(epochs, losses, label='Loss', color='red')
-            plt.xlabel('Epoch')
-            plt.ylabel('Loss')
-            plt.title('Loss vs Epoch')
-            plt.legend()
-            plt.savefig('loss_vs_epoch.png')
-            plt.close()
+        print("end")
 
 if __name__ == "__main__":
     n_frame = 4
